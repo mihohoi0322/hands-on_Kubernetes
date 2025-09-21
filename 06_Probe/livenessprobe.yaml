@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: liveness-sample
+  labels:
+    app: probe-demo
+    probe: liveness
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: probe-demo
+      probe: liveness
+  template:
+    metadata:
+      labels:
+        app: probe-demo
+        probe: liveness
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.27-alpine
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: 50m
+            memory: 32Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        # livenessProbe: コンテナがハング/異常状態になっていないかを継続監視し、失敗が続くと再起動
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          # 最初のチェックまで待つ時間 (秒)
+          initialDelaySeconds: 10
+          # Probe 実行間隔 (秒)
+          periodSeconds: 10
+          # タイムアウト (秒) 応答しなければ失敗
+          timeoutSeconds: 2
+          # 成功とみなすまで連続で必要な成功回数
+          successThreshold: 1
+          # 再起動判定になるまでの連続失敗回数
+          failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: liveness-sample-svc
+  labels:
+    app: probe-demo
+    probe: liveness
+spec:
+  selector:
+    app: probe-demo
+    probe: liveness
+  ports:
+  - port: 80
+    targetPort: 80

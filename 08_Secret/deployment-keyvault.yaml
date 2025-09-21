@@ -1,0 +1,193 @@
+## WordPress + MySQL (Key Vault CSI Driver 統合版)
+# - Key Vault からシークレットを取得 (SecretProviderClass: wordpress-kv)
+# - 同期された K8s Secret (wordpress-db-secret-kv) を envFrom で利用
+# - 既存ファイル版 (deployment.yaml + secret.yaml) とは別の検証用
+# 前準備: keyvault-secretproviderclass.yaml 適用 + Key Vault に対応シークレット配置
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wordpress-mysql-kv
+  labels:
+    app: wordpress
+    tier: db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wordpress
+      tier: db
+      source: kv
+  template:
+    metadata:
+      labels:
+        app: wordpress
+        tier: db
+        source: kv
+    spec:
+      serviceAccountName: wordpress-app-sa
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          imagePullPolicy: IfNotPresent
+          # Key Vault から同期された Secret を利用
+          envFrom:
+            - secretRef:
+                name: wordpress-db-secret-kv
+          ports:
+            - containerPort: 3306
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            exec:
+              command: ["/bin/sh","-c","mysqladmin ping -h 127.0.0.1 -uroot -p$MYSQL_ROOT_PASSWORD || exit 1"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 5
+          readinessProbe:
+            tcpSocket:
+              port: 3306
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+      volumes:
+        - name: mysql-data
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress-mysql-kv
+  labels:
+    app: wordpress
+    tier: db
+    source: kv
+spec:
+  type: ClusterIP
+  selector:
+    app: wordpress
+    tier: db
+    source: kv
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wordpress-web-kv
+  labels:
+    app: wordpress
+    tier: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wordpress
+      tier: frontend
+      source: kv
+  template:
+    metadata:
+      labels:
+        app: wordpress
+        tier: frontend
+        source: kv
+    spec:
+      serviceAccountName: wordpress-app-sa
+      containers:
+        - name: wordpress
+          image: wordpress:6.5-apache
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: WORDPRESS_DB_HOST
+              value: wordpress-mysql-kv
+          envFrom:
+            - secretRef:
+                name: wordpress-db-secret-kv
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: wp-content
+              mountPath: /var/www/html/wp-content
+            - name: kv-files
+              mountPath: /mnt/kv-secrets
+              readOnly: true
+      volumes:
+        - name: wp-content
+          emptyDir: {}
+        - name: kv-files
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: wordpress-kv
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress-web-kv
+  labels:
+    app: wordpress
+    tier: frontend
+    source: kv
+  annotations:
+    # 内部 LB が必要ならアンコメント:
+    # service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+spec:
+  type: LoadBalancer
+  selector:
+    app: wordpress
+    tier: frontend
+    source: kv
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+
+## 適用手順 (参考)
+# 1) Key Vault に以下シークレットを作成 (例 名称):
+#    mysql-root-password / mysql-database / mysql-user / mysql-password
+# 2) keyvault-secretproviderclass.yaml を編集し vault 名 / tenant / identity ID を設定
+# 3) kubectl apply -f 08_Secret/keyvault-secretproviderclass.yaml
+# 4) kubectl apply -f 08_Secret/deployment-keyvault.yaml
+# 5) 同期された K8s Secret 確認: kubectl get secret wordpress-db-secret-kv -o yaml
+# 6) Pod 内ファイル確認: kubectl exec -it <wordpress-web-pod> -- ls /mnt/kv-secrets
+# 7) クリーンアップ: kubectl delete -f 08_Secret/deployment-keyvault.yaml -f 08_Secret/keyvault-secretproviderclass.yaml

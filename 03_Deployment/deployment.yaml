@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myDeployment
+spec:
+  selector:
+    matchLabels:
+      app: myDeployment
+  template:
+    metadata:
+      labels:
+        app: myDeployment
+    spec:
+      containers:
+      - name: myDeployment
+        image: nginx:latest
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 80

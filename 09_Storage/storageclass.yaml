@@ -1,0 +1,22 @@
+# Azure Blob CSI (blobfuse2) StorageClass for dynamic provisioning
+# 参考: https://learn.microsoft.com/azure/aks/concepts-storage
+# 注意: Blob はオブジェクトストレージであり POSIX 完全互換ではありません。
+# WordPress のキャッシュ/メディア格納など読み書き混在用途では Azure Files の方が互換性が高い点に留意。
+# 学習目的で blobfuse2 を使用した例です。
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: blob-fuse
+provisioner: blob.csi.azure.com
+parameters:
+  skuName: Standard_LRS
+  containerName: wpcontent
+  # 動的プロビジョニング時に使用するストレージアカウント情報 (既存 Secret を利用)
+  secretName: wordpress-db-secret
+  secretNamespace: default
+  # protocol: fuse
+mountOptions:
+  - -o allow_other
+reclaimPolicy: Delete   # 動的作成された PV を削除 (学習用途)。保持したい場合は Retain
+allowVolumeExpansion: true
+volumeBindingMode: Immediate

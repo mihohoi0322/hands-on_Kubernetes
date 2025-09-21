@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: startup-sample
+  labels:
+    app: probe-demo
+    probe: startup
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: probe-demo
+      probe: startup
+  template:
+    metadata:
+      labels:
+        app: probe-demo
+        probe: startup
+    spec:
+      containers:
+      - name: slow-app
+        image: busybox:1.36
+        # 擬似的に初期化 40 秒、その後 8081 ポートでシンプル HTTP 応答
+        command:
+          - /bin/sh
+          - -c
+          - >-
+            echo 'Init phase...'; sleep 40;
+            while true; do printf 'HTTP/1.1 200 OK\r\nContent-Length:5\r\n\r\nready' | nc -l -p 8081; done
+        ports:
+        - containerPort: 8081
+        resources:
+          requests:
+            cpu: 40m
+            memory: 48Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        # startupProbe: 起動完了前は liveness/readiness 失敗を無視し、起動完了後に有効化
+        startupProbe:
+          tcpSocket:
+            port: 8081
+          initialDelaySeconds: 5   # 最初のチェックまで少し待機
+          periodSeconds: 5         # 間隔
+          failureThreshold: 10     # 10*5=50秒まで失敗許容 (起動に最大 ~45s 想定)
+        # livenessProbe: 稼働中ハング検知
+        livenessProbe:
+          tcpSocket:
+            port: 8081
+          periodSeconds: 10
+          timeoutSeconds: 2
+          failureThreshold: 3
+        # readinessProbe: トラフィック振替可否
+        readinessProbe:
+          tcpSocket:
+            port: 8081
+          periodSeconds: 5
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: startup-sample-svc
+  labels:
+    app: probe-demo
+    probe: startup
+spec:
+  selector:
+    app: probe-demo
+    probe: startup
+  ports:
+  - port: 8081
+    targetPort: 8081

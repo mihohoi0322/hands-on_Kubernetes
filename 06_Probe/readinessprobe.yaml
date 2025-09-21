@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: readiness-sample
+  labels:
+    app: probe-demo
+    probe: readiness
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: probe-demo
+      probe: readiness
+  template:
+    metadata:
+      labels:
+        app: probe-demo
+        probe: readiness
+    spec:
+      containers:
+      - name: app
+        image: busybox:1.36
+        # 15 秒初期化 -> 簡易 HTTP (nc) サーバ 8080 で応答
+        command:
+          - /bin/sh
+          - -c
+          - >-
+            echo 'Starting...'; sleep 15;
+            while true; do printf 'HTTP/1.1 200 OK\r\nContent-Length:2\r\n\r\nok'; | nc -l -p 8080; done
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            cpu: 30m
+            memory: 32Mi
+          limits:
+            cpu: 150m
+            memory: 96Mi
+        # readinessProbe: レディ状態 (依存初期化完了) を判定し、失敗時は Service から外れる
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 3
+        # （比較用）livenessProbe を簡易に追加して差異を観察可
+        livenessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 1
+          failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: readiness-sample-svc
+  labels:
+    app: probe-demo
+    probe: readiness
+spec:
+  selector:
+    app: probe-demo
+    probe: readiness
+  ports:
+  - port: 8080
+    targetPort: 8080
