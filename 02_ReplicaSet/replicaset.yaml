@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: ReplicaSet
 metadata:
-  name: myReplicaSet
+  name: myreplicaset
   labels:
     key: value
 spec:
@@ -15,5 +15,5 @@ spec:
         key: value
     spec:
       containers:
-        - name: myContainer
+        - name: mycontainer
           image: nginx:latest

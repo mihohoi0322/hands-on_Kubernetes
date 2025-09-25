@@ -1,7 +1,6 @@
 # WordPress + Azure Blob Storage (CSI) サンプル
 
-このフォルダは WordPress の `wp-content` を Azure Blob Storage (blobfuse2) 経由でマウントする学習用サンプルです。
-本番では **Azure Files (RWX/POSIX 互換性) か Azure Disk + Object Storage 分離** の検討を推奨します。Blobfuse2 はオブジェクトストレージを FUSE でマウントするため、一部の POSIX 機能 (ロックなど) が完全ではありません。
+このフォルダは WordPress の `wp-content` を Azure Blob Storage (blobfuse2) で利用するサンプルです。
 
 ## 構成ファイル
 | ファイル | 役割 |
@@ -12,18 +11,24 @@
 | `deployment.yaml` | MySQL / WordPress Deployments & Services。WordPress が PVC を `/var/www/html/wp-content` にマウント |
 
 ## 事前条件
+0. 変数設定
+    ```bash
+    RG=<RESOURCE_GROUP>
+    CLUSTER=<AKS_CLUSTER>
+    STORAGE_ACCOUNT=<STORAGE_ACCOUNT_NAME>
+    ```
 1. AKS クラスター (Kubernetes バージョンがサポート範囲)
 2. Blob CSI Driver が有効化されていること
-   - AKS アドオン (プレビュー状況により名前が変わる可能性あり):
+   - AKS アドオン:
      ```bash
-     az aks update -g <RG> -n <CLUSTER> --enable-blob-driver
+     az aks update -g $RG -n $CLUSTER --enable-blob-driver
      ```
    - もしくは公式マニフェスト / Helm によるインストール。
 3. Azure Storage アカウント + コンテナ `wpcontent` を作成:
    ```bash
-   az storage account create -g <RG> -n <STORAGE_ACCOUNT> --sku Standard_LRS
-   az storage container create --account-name <STORAGE_ACCOUNT> -n wpcontent
-   az storage account keys list -g <RG> -n <STORAGE_ACCOUNT> --query [0].value -o tsv
+   az storage account create -g $RG -n $STORAGE_ACCOUNT --sku Standard_LRS
+   az storage container create --account-name $STORAGE_ACCOUNT -n wpcontent
+   az storage account keys list -g $RG -n $STORAGE_ACCOUNT --query [0].value -o tsv
    ```
 4. `secret.yaml` 内の `<YOUR_STORAGE_ACCOUNT_NAME>` / `<YOUR_STORAGE_ACCOUNT_KEY>` を実値に置換。
 
@@ -84,4 +89,3 @@ kubectl delete -f 09_Storage/secret.yaml || true
 - Azure Blob CSI Driver: https://learn.microsoft.com/azure/aks/azure-blob-csi
 
 ---
-このサンプルは学習用です。プロダクションでは耐久・整合性要件に応じてストレージ種別を再評価してください。

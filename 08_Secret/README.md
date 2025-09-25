@@ -1,9 +1,9 @@
 # WordPress + MySQL シークレット管理ガイド
 
-このディレクトリでは 2 通りのシークレット管理手法を学習できます。
+ここでは 2 通りのシークレット管理を実行します。
 
-1. 典型的な Kubernetes Secret（`secret.yaml`）を `envFrom: secretRef:` で注入
-2. Azure Key Vault CSI Driver を用いた動的取得 + K8s Secret 同期（`keyvault-secretproviderclass.yaml` / `deployment-keyvault.yaml`）
+1. 一般的な Secret
+2. Azure Key Vault CSI Driver を用いた Key Vault 連携
 
 ## ファイル一覧
 | ファイル | 役割 |
@@ -15,7 +15,6 @@
 
 ---
 ## 1. シンプルな Kubernetes Secret 方式
-学習・PoC・最小構成向け。`stringData` で定義し適用時に base64 へ変換されます。
 
 ### 適用手順
 ```bash
@@ -37,14 +36,9 @@ POD=$(kubectl get pod -l app=wordpress,tier=frontend -o jsonpath='{.items[0].met
 kubectl exec $POD -- env | grep WORDPRESS_DB_
 ```
 
-### 注意 (本番非推奨点)
-- Git 上に平文のシークレットを保持（漏えいリスク）
-- ローテーション時は Secret 書換→Pod 再起動が必要
-- 監査・アクセス制御粒度が粗い
-
 ---
 ## 2. Azure Key Vault CSI Driver 方式
-Key Vault でシークレットを集中管理し、Pod 起動時に CSI ドライバでマウント + K8s Secret 同期。ローテーションを Key Vault 側で行い、再同期しやすくなります。
+Key Vault でシークレットを集中管理し、Pod 起動時に CSI ドライバでマウント + K8s Secret 同期。
 
 ### 前提
 - AKS に Secrets Store CSI Driver + Azure Key Vault Provider 導入済み

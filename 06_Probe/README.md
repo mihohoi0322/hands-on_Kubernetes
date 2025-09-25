@@ -12,10 +12,10 @@
 
 ## 0. 前提コマンド例
 ```bash
-# すべて適用 (個別検証時は必要なものだけでも可)
-kubectl apply -f 06_Probe/livenessprobe.yaml \
-  -f 06_Probe/readinessprobe.yaml \
-  -f 06_Probe/startupprobe.yaml
+# それぞれ適用 (個別検証時は必要なものだけでも可)
+kubectl apply -f 06_Probe/livenessprobe.yaml
+kubectl apply -f 06_Probe/readinessprobe.yaml
+kubectl apply -f 06_Probe/startupprobe.yaml
 
 kubectl get deploy -l app=probe-demo
 kubectl get pods -l app=probe-demo -w
@@ -33,19 +33,19 @@ kubectl get pods -l app=probe-demo -w
 ### 観察コマンド
 ```bash
 # Pod / イベント
-POD=$(kubectl get pod -l probe=liveness -o jsonpath='{.items[0].metadata.name}')
-kubectl describe pod $POD | grep -i liveness -A2
+kubectl get pod -l probe=liveness
+kubectl describe pod <liveness Pod 名> | grep -i liveness -A2
 ```
 
 ### 失敗を人工的に起こす例
 (単純化のため busybox でなく nginx のプロセスを一時停止)
 ```bash
-# プロセスを STOP -> 応答停止扱い (一部環境で再現しにくい場合あり)
-kubectl exec $POD -- sh -c 'pkill -STOP nginx'
+# プロセスを STOP -> 応答停止扱い (一部環境で再現しにくい場合あり)　※ここでログに liveness probe の失敗が記録される
+kubectl exec  <liveness Pod 名> -- sh -c 'pkill -STOP nginx'
 # イベント観察
-kubectl describe pod $POD | grep -i liveness -A2
+kubectl describe pod <liveness Pod 名> | grep -i liveness -A2
 # 再開
-kubectl exec $POD -- sh -c 'pkill -CONT nginx'
+kubectl exec  <liveness Pod 名> -- sh -c 'pkill -CONT nginx'
 ```
 
 ---

@@ -26,7 +26,10 @@ spec:
           - -c
           - >-
             echo 'Starting...'; sleep 15;
-            while true; do printf 'HTTP/1.1 200 OK\r\nContent-Length:2\r\n\r\nok'; | nc -l -p 8080; done
+            while true; do 
+              printf 'HTTP/1.1 200 OK\r\nContent-Length:2\r\n\r\nok' | nc -l -p 8080;
+              sleep 1;
+            done
         ports:
         - containerPort: 8080
         resources:
@@ -62,6 +65,7 @@ metadata:
     app: probe-demo
     probe: readiness
 spec:
+  type: LoadBalancer
   selector:
     app: probe-demo
     probe: readiness

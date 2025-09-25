@@ -3,18 +3,37 @@ kind: Service
 metadata:
   name: my-deployment-svc
   labels:
-    app: myDeployment
+    app: myapp
   annotations: {}
 spec:
   type: LoadBalancer
   selector:
-    app: myDeployment
+    app: myapp
   ports:
   - name: http
     protocol: TCP
     port: 80
     targetPort: 80
-  # クライアントのソースIPを保持したい場合は externalTrafficPolicy: Local を検討してください
-  # externalTrafficPolicy: Local
-  # 固定の Public IP を使いたい場合は Azure 側で静的 IP を割り当てて loadBalancerIP に設定します
-  # loadBalancerIP: <AZURE_RESERVED_IP>
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+spec:
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+      - name: myapp
+        image: nginx:latest
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 80
