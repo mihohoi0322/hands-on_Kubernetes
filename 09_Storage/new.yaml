@@ -1,0 +1,70 @@
+# 最もシンプルな解決法：既存の動作するStorageClassを使用
+
+---
+# WordPress用シンプルPVC（既存の動作するStorageClassを使用）
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wordpress-pvc-simple
+  labels:
+    app: wordpress
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: azurefile-csi  # 既存の動作するStorageClass
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+# WordPress Deployment（シンプル版）
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wordpress-simple
+  labels:
+    app: wordpress
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wordpress
+      tier: frontend
+  template:
+    metadata:
+      labels:
+        app: wordpress
+        tier: frontend
+    spec:
+      containers:
+        - name: wordpress
+          image: wordpress:6.5-apache
+          envFrom:
+            - secretRef:
+                name: wordpress-db-secret
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: wordpress-storage
+              mountPath: /var/www/html/wp-content
+      volumes:
+        - name: wordpress-storage
+          persistentVolumeClaim:
+            claimName: wordpress-pvc-simple
+
+---
+# Service（既存のものを使用可能）
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress-simple-service
+  labels:
+    app: wordpress
+spec:
+  type: LoadBalancer
+  selector:
+    app: wordpress
+    tier: frontend
+  ports:
+    - port: 80
+      targetPort: 80

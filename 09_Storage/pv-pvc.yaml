@@ -1,15 +1,14 @@
-# Dynamic provisioning example: PVC only (StorageClass 'blob-fuse' will create PV)
-# 旧静的 PV 定義は削除。必要なら git 履歴を参照してください。
+# Azure Files用 PersistentVolumeClaim
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: wp-blob-pvc
+  name: wp-files-pvc
   labels:
     app: wordpress
 spec:
   accessModes:
-    - ReadWriteMany
-  storageClassName: blob-fuse
+    - ReadWriteMany  # 複数ノードからアクセス可能
+  storageClassName: azurefile-csi-smb
   resources:
     requests:
       storage: 5Gi

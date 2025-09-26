@@ -6,7 +6,7 @@ metadata:
     app: probe-demo
     probe: readiness
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       app: probe-demo

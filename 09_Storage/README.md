@@ -12,18 +12,15 @@
 
 ## 事前条件
 0. 変数設定
-    ```bash
-    RG=<RESOURCE_GROUP>
-    CLUSTER=<AKS_CLUSTER>
-    STORAGE_ACCOUNT=<STORAGE_ACCOUNT_NAME>
-    ```
+```bash
+RG=<RESOURCE_GROUP>
+AKS_NAME=<AKS_CLUSTER>
+STORAGE_ACCOUNT=<STORAGE_ACCOUNT_NAME>
+```
 1. AKS クラスター (Kubernetes バージョンがサポート範囲)
-2. Blob CSI Driver が有効化されていること
-   - AKS アドオン:
-     ```bash
-     az aks update -g $RG -n $CLUSTER --enable-blob-driver
-     ```
-   - もしくは公式マニフェスト / Helm によるインストール。
+2. Blob CSI Driver を有効化する
+     az aks update -g $RG -n $AKS_NAME --enable-blob-driver
+
 3. Azure Storage アカウント + コンテナ `wpcontent` を作成:
    ```bash
    az storage account create -g $RG -n $STORAGE_ACCOUNT --sku Standard_LRS
@@ -38,7 +35,7 @@
 kubectl apply -f 09_Storage/secret.yaml
 
 # 2. StorageClass
-yaml=09_Storage/storageclass.yaml; kubectl apply -f $yaml
+kubectl apply -f 09_Storage/storageclass.yaml
 
 # 3. PVC (PV は StorageClass により自動作成)
 kubectl apply -f 09_Storage/pv-pvc.yaml
@@ -47,7 +44,7 @@ kubectl get pv | grep blob-fuse
 
 # 4. Deployments + Services
 kubectl apply -f 09_Storage/deployment.yaml
-kubectl get pods -l app=wordpress -w
+kubectl get pods -l app=wordpress
 
 # 5. PVC マウント確認
 POD=$(kubectl get pod -l app=wordpress,tier=frontend -o jsonpath='{.items[0].metadata.name}')
