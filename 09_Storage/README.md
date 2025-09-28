@@ -2,14 +2,6 @@
 
 このフォルダは WordPress の `wp-content` を Azure Blob Storage (blobfuse2) で利用するサンプルです。
 
-## 構成ファイル
-| ファイル | 役割 |
-|----------|------|
-| `secret.yaml` | DB 接続情報 + Blob 用 `azurestorageaccountname` / `azurestorageaccountkey` |
-| `storageclass.yaml` | blob.csi.azure.com 用 StorageClass (container `wpcontent`) |
-| `pv-pvc.yaml` | (動的) PersistentVolumeClaim のみ。StorageClass により PV 自動作成 |
-| `deployment.yaml` | MySQL / WordPress Deployments & Services。WordPress が PVC を `/var/www/html/wp-content` にマウント |
-
 ## 事前条件
 0. 変数設定
 ```bash
@@ -19,30 +11,19 @@ STORAGE_ACCOUNT=<STORAGE_ACCOUNT_NAME>
 ```
 1. AKS クラスター (Kubernetes バージョンがサポート範囲)
 2. Blob CSI Driver を有効化する
-     az aks update -g $RG -n $AKS_NAME --enable-blob-driver
+     az aks update -g $RG -n $AKS_NAME --enable-blob-driver --enable-file-driver
+     kubectl get storageclass
 
-3. Azure Storage アカウント + コンテナ `wpcontent` を作成:
-   ```bash
-   az storage account create -g $RG -n $STORAGE_ACCOUNT --sku Standard_LRS
-   az storage container create --account-name $STORAGE_ACCOUNT -n wpcontent
-   az storage account keys list -g $RG -n $STORAGE_ACCOUNT --query [0].value -o tsv
-   ```
-4. `secret.yaml` 内の `<YOUR_STORAGE_ACCOUNT_NAME>` / `<YOUR_STORAGE_ACCOUNT_KEY>` を実値に置換。
 
 ## 適用手順 (動的プロビジョニング版)
 ```bash
-# 1. Secret (DB+Blob 認証情報)
-kubectl apply -f 09_Storage/secret.yaml
-
-# 2. StorageClass
 kubectl apply -f 09_Storage/storageclass.yaml
 
-# 3. PVC (PV は StorageClass により自動作成)
-kubectl apply -f 09_Storage/pv-pvc.yaml
-kubectl get pvc wp-blob-pvc -o wide
-kubectl get pv | grep blob-fuse
+# PVC (PV は StorageClass により自動作成)
+kubectl apply -f 09_Storage/pvc.yaml
+kubectl get pv,pvc
 
-# 4. Deployments + Services
+# Deployments + Services
 kubectl apply -f 09_Storage/deployment.yaml
 kubectl get pods -l app=wordpress
 

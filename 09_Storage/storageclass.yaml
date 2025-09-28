@@ -1,29 +1,12 @@
-# Azure Files CSI Driver StorageClass for WordPress
-# SMB プロトコルを使用（WordPress と高い互換性）
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: azurefile-csi-smb
+  name: azurefile-csi-nfs
 provisioner: file.csi.azure.com
-parameters:
-  skuName: Standard_LRS
-  # SMBプロトコルを使用（デフォルト、省略可能）
-  protocol: smb
-  # 既存のStorage Accountを使用する場合
-  storageAccount: wpcontent
-  # 認証用Secret
-  secretName: wordpress-db-secret
-  secretNamespace: default
-reclaimPolicy: Delete
-volumeBindingMode: Immediate
 allowVolumeExpansion: true
+parameters:
+  protocol: nfs
 mountOptions:
-  # SMB用マウントオプション
-  - dir_mode=0777
-  - file_mode=0777
-  - uid=33  # www-dataユーザーのUID（Apache/WordPress用）
-  - gid=33  # www-dataグループのGID
-  - nobrl   # byte range lockingを無効化
-  - mfsymlinks
-  - cache=strict
-  - nosharesock  # 複数接続の問題を回避
+  - nconnect=4
+  - noresvport
+  - actimeo=30

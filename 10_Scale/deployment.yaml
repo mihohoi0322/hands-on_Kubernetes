@@ -105,8 +105,3 @@ spec:
       target:
         type: Utilization
         averageUtilization: 70  # 目標: requests 指定 Memory の 70%
-
-## 監視コマンド例
-# kubectl get hpa hpa-demo -w
-# kubectl top pods -l app=hpa-demo
-# kubectl describe hpa hpa-demo | grep -A3 Metrics
