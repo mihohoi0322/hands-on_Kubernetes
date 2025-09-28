@@ -1,6 +1,6 @@
 # WordPress + Azure Blob Storage (CSI) サンプル
 
-このフォルダは WordPress の `wp-content` を Azure Blob Storage (blobfuse2) で利用するサンプルです。
+このフォルダは WordPress の `wp-content` を Azurefiles で利用するサンプルです。
 
 ## 事前条件
 0. 変数設定
@@ -32,38 +32,3 @@ POD=$(kubectl get pod -l app=wordpress,tier=frontend -o jsonpath='{.items[0].met
 kubectl exec $POD -- mount | grep wp-content || true
 kubectl exec $POD -- sh -c 'ls -al /var/www/html/wp-content'
 ```
-
-## 動作ポイント
-- 旧: 静的 PV + PVC → 新: PVC のみ (StorageClass `blob-fuse` が動的に PV を作成)
-- StorageClass に `secretName` / `secretNamespace` を追加しストレージアカウントキーを参照
-- ReclaimPolicy は学習用に `Delete`。データ保持したい場合は `Retain` に変更
-- WordPress の `wp-content` は PVC (`wp-blob-pvc`) を介して Blobfuse2 マウント
-
-## クリーニング (順序: アプリ → PVC → SC → Secret)
-```bash
-kubectl delete -f 09_Storage/deployment.yaml || true
-kubectl delete -f 09_Storage/pv-pvc.yaml || true   # PVC 削除 (PV も Delete ポリシーで削除)
-kubectl delete -f 09_Storage/storageclass.yaml || true
-kubectl delete -f 09_Storage/secret.yaml || true
-```
-(ReclaimPolicy=Delete のため PV 削除でボリュームも解放。保持したい場合は Retain に変更)
-
-## トラブルシュート
-| 症状 | 確認 / 対処 |
-|------|-------------|
-| PVC が Pending | PV と accessModes / storageClassName / size が一致するか |
-| Pod Mount エラー (Permission) | mountOptions の `-o allow_other`、secret キー名綴り確認 |
-| パフォーマンス低下 | Blob は高 IOPS ワークロードに不向き。Azure Files Premium / Disk 検討 |
-| 一部プラグイン書き込み失敗 | Blobfuse2 の POSIX 制限。Azure Files へ移行検討 |
-
-## 発展 (本番向け)
-- Azure Files (Premium) で RWX 高互換ストレージ
-- Key Vault CSI Driver でストレージキー非開示化
-- MySQL を Azure Database for MySQL Flexible Server へ分離 (Managed Identity + Private Link)
-- CDN / Front Door で静的アセット配信
-
-## 参考
-- Azure AKS Storage Concepts: https://learn.microsoft.com/azure/aks/concepts-storage
-- Azure Blob CSI Driver: https://learn.microsoft.com/azure/aks/azure-blob-csi
-
----
