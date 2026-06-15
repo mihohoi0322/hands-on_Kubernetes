@@ -1,6 +1,6 @@
 # WordPress + Azure Files CSI (NFS) サンプル
 
-このフォルダは WordPress の `wp-content` を Azurefiles で利用するサンプルです。
+このフォルダは WordPress の `/var/www/html` を Azurefiles で利用するサンプルです。
 
 ## 事前条件
 0. 変数設定
@@ -29,6 +29,6 @@ kubectl get pods -l app=wordpress
 
 # 5. PVC マウント確認
 POD=$(kubectl get pod -l app=wordpress,tier=frontend -o jsonpath='{.items[0].metadata.name}')
-kubectl exec $POD -- mount | grep wp-content || true
+kubectl exec $POD -- mount | grep /var/www/html || true
 kubectl exec $POD -- sh -c 'ls -al /var/www/html/wp-content'
 ```

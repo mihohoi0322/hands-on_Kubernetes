@@ -74,6 +74,6 @@ kubectl apply -f 08_Secret/deployment-keyvault.yaml
 ### 動作確認
 ```bash
 kubectl exec sc-demo-keyvault-csi -- ls -la /mnt/secrets-store
-kubectl exec sc-demo-keyvault-csi -- cat /mnt/secrets-store/<YOUR_SECRET_NAME>
+kubectl exec sc-demo-keyvault-csi -- cat "/mnt/secrets-store/<YOUR_SECRET_NAME>"
 kubectl get secret keyvault-synced-secret -o yaml
 ```

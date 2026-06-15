@@ -77,7 +77,7 @@ kubectl config set-context --current --namespace=hol
 3. 06_Probe: 各 Probe と失敗シナリオ観察
 4. 07_RequestLimits: Requests/Limits の出力と HPA 前提理解
 5. 08_Secret: 平文 Secret → Key Vault CSI へ進化 (Workload Identity)
-6. 09_Storage: Azure Files CSI (NFS) 動的 PVC (WordPress `wp-content`)
+6. 09_Storage: Azure Files CSI (NFS) 動的 PVC (WordPress `/var/www/html`)
 7. 10_Scale: HPA によるスケール挙動
 8. Optional: 改善課題 (下記 "発展 / 改善提案") を自分で拡張
 
