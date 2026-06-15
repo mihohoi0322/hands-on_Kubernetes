@@ -1,4 +1,4 @@
-# WordPress + Azure Blob Storage (CSI) サンプル
+# WordPress + Azure Files CSI (NFS) サンプル
 
 このフォルダは WordPress の `wp-content` を Azurefiles で利用するサンプルです。
 
@@ -10,8 +10,8 @@ AKS_NAME=<AKS_CLUSTER>
 STORAGE_ACCOUNT=<STORAGE_ACCOUNT_NAME>
 ```
 1. AKS クラスター (Kubernetes バージョンがサポート範囲)
-2. Blob CSI Driver を有効化する
-     az aks update -g $RG -n $AKS_NAME --enable-blob-driver --enable-file-driver
+2. Azure Files CSI Driver を有効化する
+     az aks update -g $RG -n $AKS_NAME --enable-file-driver
      kubectl get storageclass
 
 
