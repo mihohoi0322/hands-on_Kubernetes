@@ -2,7 +2,7 @@
 
 このリポジトリは **Azure Kubernetes Service (AKS)** 上で基礎から拡張トピック (ストレージ / シークレット / Key Vault / Probe / スケーリング) まで一通り体験できるよう段階的フォルダ構成になっています。
 
-> 学習用途のため「平文 Secret」「emptyDir の DB」「Blobfuse2」など本番非推奨構成を含みます。実運用向け強化ポイントは各節末および本 README 末尾の "発展 / 改善提案" を参照してください。
+> 学習用途のため「平文 Secret」「emptyDir の DB」など本番非推奨構成を含みます。実運用向け強化ポイントは各節末および本 README 末尾の "発展 / 改善提案" を参照してください。
 
 ---
 ## 目次
@@ -17,7 +17,7 @@
 | 06 | `06_Probe/` | liveness / readiness / startup + 失敗シナリオ | ヘルスチェック設計 |
 | 07 | `07_RequestLimits/` | Requests / Limits Pod | リソース管理と HPA 前提 |
 | 08 | `08_Secret/` | Secret / Key Vault CSI | 機密情報の 2 手法比較 |
-| 09 | `09_Storage/` | Blob CSI (動的 PVC) + WordPress | ストレージ / 永続化の基礎 |
+| 09 | `09_Storage/` | Azure Files CSI NFS (動的 PVC) + WordPress | ストレージ / 永続化の基礎 |
 | 10 | `10_Scale/` | HPA (autoscaling/v2) | 水平方向オートスケール |
 
 ---
@@ -42,12 +42,12 @@ LOC=japaneast
 AKS=aks-hol
 
 az group create -n $RG -l $LOC
-# Workload Identity / OIDC / Key Vault Provider / Blob CSI を最初から有効化 (再作成コスト削減)
+# Workload Identity / OIDC / Key Vault Provider / Azure Files CSI を最初から有効化 (再作成コスト削減)
 az aks create -g $RG -n $AKS \
   --node-count 2 --node-vm-size Standard_B4ms \
   --enable-oidc-issuer --enable-workload-identity \
   --enable-addons azure-keyvault-secrets-provider \
-  --enable-blob-driver \
+  --enable-file-driver \
   --generate-ssh-keys
 
 # 取得 & コンテキスト設定
@@ -56,7 +56,7 @@ az aks get-credentials -g $RG -n $AKS --overwrite-existing
 # 動作確認
 kubectl get nodes
 ```
-> 注: 既存 AKS に追加する場合は `az aks update --enable-workload-identity --enable-oidc-issuer` / `--enable-blob-driver` / `--enable-addons azure-keyvault-secrets-provider` を個別実行。
+> 注: 既存 AKS に追加する場合は `az aks update --enable-workload-identity --enable-oidc-issuer` / `--enable-file-driver` / `--enable-addons azure-keyvault-secrets-provider` を個別実行。
 
 ### メトリクス (HPA 用)
 AKS は既定で metrics-server がデプロイされています。`kubectl top nodes` で確認できない場合は数分待機。
@@ -77,7 +77,7 @@ kubectl config set-context --current --namespace=hol
 3. 06_Probe: 各 Probe と失敗シナリオ観察
 4. 07_RequestLimits: Requests/Limits の出力と HPA 前提理解
 5. 08_Secret: 平文 Secret → Key Vault CSI へ進化 (Workload Identity)
-6. 09_Storage: Blob CSI 動的 PVC (WordPress `wp-content`)
+6. 09_Storage: Azure Files CSI (NFS) 動的 PVC (WordPress `/var/www/html`)
 7. 10_Scale: HPA によるスケール挙動
 8. Optional: 改善課題 (下記 "発展 / 改善提案") を自分で拡張
 
@@ -92,7 +92,7 @@ kubectl config set-context --current --namespace=hol
 ### ストレージ (09_Storage)
 | 種別 | 用途 | 特徴 | 注意 |
 |------|------|------|------|
-| Blobfuse2 (本サンプル) | メディア配信 / 大容量オブジェクト | 安価 / オブジェクトストレージ | 完全 POSIX でない |
+| Azure Files CSI NFS (本サンプル) | 読み書き共有 / WordPress 共有コンテンツ | RWX / 動的 PVC 対応 | NFS 制約・レイテンシに注意 |
 | Azure Files | 読み書き共有 / POSIX 互換 | 標準 RWX | 性能要件に応じ SKU 選択 |
 | Azure Disk | 単一 Pod 高性能 RW | 高 IOPS / 低レイテンシ | RWX 不可 (マルチアタッチは制限) |
 
@@ -130,10 +130,12 @@ for d in 10_Scale 09_Storage 08_Secret 07_RequestLimits 06_Probe 05_Service 05_J
   kubectl delete -f $d --ignore-not-found --recursive || true
   # ディレクトリ直下のみ multi-doc でない場合 `-f $d/*.yaml` の方が明示的
 done
-# Blob 用 PVC/SC (順序注意)
-kubectl delete -f 09_Storage/pv-pvc.yaml --ignore-not-found || true
+# Azure Files 用 PVC/SC (順序注意)
+kubectl delete -f 09_Storage/pvc.yaml --ignore-not-found || true
 kubectl delete -f 09_Storage/storageclass.yaml --ignore-not-found || true
-# Key Vault CSI 追加リソースkubectl delete -f 08_Secret/keyvault-secretproviderclass.yaml --ignore-not-found || true
+# Key Vault CSI 追加リソース
+kubectl delete -f 08_Secret/deployment-keyvault.yaml --ignore-not-found || true
+kubectl delete -f 08_Secret/keyvault-secretproviderclass.yaml --ignore-not-found || true
 ```
 (リソースグループごと削除する場合: `az group delete -n $RG -y --no-wait`)
 
@@ -173,9 +175,9 @@ kubectl delete -f 09_Storage/storageclass.yaml --ignore-not-found || true
 | Requests/Limits | OK (07 + 各 Deployment) |
 | Secret (平文) | OK (学習用途) / 本番は非推奨 |
 | Key Vault CSI | OK (placeholder 要編集) |
-| Blob CSI 動的 PVC | OK (学習用 / RWX 注意) |
+| Azure Files CSI NFS 動的 PVC | OK (学習用 / RWX 注意) |
 | HPA (CPU+Memory) | OK |
-| Workload Identity | 部分 (annotation 未設定) |
+| Workload Identity | OK (Key Vault 検証用マニフェストで設定済み) |
 | 永続 MySQL | 未実装 (emptyDir) |
 | Namespace / RBAC | 未導入 (拡張余地) |
 | 監視 / ログ統合 | 未記載 (Azure Monitor 手順追加余地) |
@@ -184,8 +186,8 @@ kubectl delete -f 09_Storage/storageclass.yaml --ignore-not-found || true
 ## 11. 既知のプレースホルダ / 編集必須箇所
 | ファイル | 置き換える値 |
 |---------|--------------|
-| `08_Secret/keyvault-secretproviderclass.yaml` | `<YOUR_KEYVAULT_NAME>` `<YOUR_TENANT_ID>` `<OPTIONAL-USER-ASSIGNED-IDENTITY-CLIENT-ID>` |
-| `09_Storage/secret.yaml` | `<YOUR_STORAGE_ACCOUNT_NAME>` `<YOUR_STORAGE_ACCOUNT_KEY>` |
+| `08_Secret/deployment-keyvault.yaml` | `<USER_ASSIGNED_CLIENT_ID>` |
+| `08_Secret/keyvault-secretproviderclass.yaml` | `<USER_ASSIGNED_CLIENT_ID>` `<YOUR_KEYVAULT_NAME>` `<YOUR_TENANT_ID>` `<YOUR_SECRET_NAME>` |
 
 ---
 ## 12. 貢献 / 変更方針
