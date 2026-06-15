@@ -1,12 +1,23 @@
 apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: workload-identity-sa
+  namespace: default
+  annotations:
+    azure.workload.identity/client-id: "<USER_ASSIGNED_CLIENT_ID>"
+---
+apiVersion: v1
 kind: Pod
 metadata:
   name: sc-demo-keyvault-csi
+  labels:
+    azure.workload.identity/use: "true"
   namespace: default
 spec:
+  serviceAccountName: workload-identity-sa
   containers:
     - name: busybox
-      image: registry.k8s.io/e2e-test-images/busybox:1.29-4
+      image: busybox:1.36
       command:
         - "/bin/sleep"
         - "10000"
